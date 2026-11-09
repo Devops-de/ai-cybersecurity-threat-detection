@@ -7,7 +7,18 @@
 [![Scikit-Learn](https://img.shields.io/badge/scikit--learn-1.4+-F7931E.svg?logo=scikit-learn)](https://scikit-learn.org)
 [![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.4-38B2AC.svg?logo=tailwind-css)](https://tailwindcss.com)
 
-**CyberSentinel AI** is a real-time, AI-driven Security Operations Center (SOC) threat detection, classification, and autonomous incident response platform built with **Python** (Backend, ML Ensembles, Packet Inspection & GenAI Summarization) and **TypeScript / React** (Cyber SOC Dashboard, WebSockets & MITRE ATT&CK Matrix).
+## 📖 About CyberSentinel AI
+
+**CyberSentinel AI** is a production-grade, enterprise AI-driven Security Operations Center (SOC) threat detection, classification, and autonomous incident containment platform. 
+
+Engineered with a **modular Python FastAPI backend** and a **responsive TypeScript / React SOC dashboard**, CyberSentinel continuously ingests and correlates multi-vector security telemetry across enterprise network perimeters, email gateways, and endpoint processes. It employs an ensemble of unsupervised machine learning (Isolation Forest), natural language processing (TF-IDF + Logistic Regression), behavioral execution heuristics mapped to the **MITRE ATT&CK Matrix**, and Generative AI incident synthesis to identify and isolate cyber attacks before lateral expansion occurs.
+
+### 🌟 What Makes CyberSentinel AI Unique?
+* **Modular Enterprise Architecture**: Fully decomposed FastAPI backend featuring domain-driven `APIRouter` modules, centralized typed configuration (`Settings`), dependency injection (`Depends`), and pure ASGI performance middleware for sub-millisecond telemetry processing with correlation request IDs.
+* **Autonomous & Guided Incident Response**: Implements both automated policy-based auto-mitigation (instant border firewall drops and EDR endpoint isolation) and human-in-the-loop guidance with an interactive SOC AI Copilot generating copy-pasteable Linux `iptables` and Windows Defender PowerShell containment playbooks.
+* **Zero-Day ML Anomaly Detection**: Unsupervised Isolation Forest dynamically scores ingress/egress flows using feature vectors (flow duration, SYN ratios, entropy, packet/byte velocity, and destination port deviation) with statistical Z-score explainability.
+* **Strict Type Safety & Contract Validation**: End-to-end Pydantic v2 request/response contracts on the backend paired with strict TypeScript definitions and custom WebSocket telemetry hooks on the frontend.
+* **100% Automated Test Coverage**: Double-layer test harness covering all 5 core AI threat detection engines and 9 REST API contracts with zero warnings or failures.
 
 ---
 
@@ -98,16 +109,29 @@ flowchart TD
 cybersecurity-proj/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py                  # FastAPI Server with WebSockets & REST routes
-│   │   ├── schemas.py               # Pydantic v2 data models
+│   │   ├── main.py                  # FastAPI Server, ASGI Lifespan & Middlewares
+│   │   ├── schemas.py               # Comprehensive Pydantic v2 Request & Response Contracts
+│   │   ├── core/
+│   │   │   ├── config.py            # Typed Environment Configuration (Settings)
+│   │   │   ├── dependencies.py      # Dependency Injection Providers & Singletons
+│   │   │   ├── logging_config.py    # Structured Logging Formatter
+│   │   │   └── websocket_manager.py # Thread-Safe ConnectionManager for Live Telemetry
+│   │   ├── routers/
+│   │   │   ├── health.py            # Model Health Registry & System Status
+│   │   │   ├── telemetry.py         # Packet Inspection, Throughput Stats & WS Broadcast
+│   │   │   ├── phishing.py          # NLP Phishing Email Analysis & Alert Hooks
+│   │   │   ├── malware.py           # Behavioral Sandbox & MITRE ATT&CK Matrix Router
+│   │   │   ├── incidents.py         # GenAI Incident Synthesizer & Interactive Copilot
+│   │   │   ├── threat_intel.py      # Threat Feed & GeoIP/ASN IOC Lookup
+│   │   │   └── alerts.py            # Alert Management & Containment Actions
 │   │   ├── models/
 │   │   │   ├── anomaly_detector.py  # Isolation Forest ML Engine
-│   │   │   ├── phishing_detector.py # NLP Phishing Classifier
+│   │   │   ├── phishing_detector.py # NLP Phishing Classifier (TF-IDF + LogReg)
 │   │   │   ├── malware_classifier.py# Behavioral Sandbox & MITRE Matrix
 │   │   │   └── ai_summarizer.py     # GenAI Incident Synthesizer & Copilot
 │   │   └── services/
-│   │       ├── traffic_monitor.py   # Packet Stream & Attack Simulator
-│   │       ├── threat_intel.py      # IP Reputation & ASN Tracking
+│   │       ├── traffic_monitor.py   # Thread-Safe Packet Stream & Attack Simulator
+│   │       ├── threat_intel.py      # IP Reputation & RFC 1918 Verification
 │   │       └── alert_engine.py      # Alert rules & automated containment
 │   ├── requirements.txt
 │   └── run_backend.py
@@ -119,8 +143,11 @@ cybersecurity-proj/
 │   └── src/
 │       ├── App.tsx                  # Main SOC Application
 │       ├── main.tsx
-│       ├── types/index.ts           # TypeScript type definitions
-│       ├── services/api.ts          # REST & WebSocket API client
+│       ├── vite-env.d.ts            # Vite TypeScript Environment Definitions
+│       ├── types/index.ts           # Strict TypeScript Type Definitions
+│       ├── services/api.ts          # Type-Safe REST Client with Dynamic URL Resolution
+│       ├── hooks/
+│       │   └── useTelemetryWebSocket.ts # Resilient Auto-Reconnecting WebSocket Hook
 │       └── components/
 │           ├── Navbar.tsx           # Status bar & attack simulation pills
 │           ├── Sidebar.tsx          # Navigation & AI Fleet health
@@ -132,7 +159,8 @@ cybersecurity-proj/
 │           ├── ThreatIntelligenceMap.tsx # Global threat map & IP search
 │           └── AlertNotificationCenter.tsx # Containment execution center
 ├── tests/
-│   └── test_system.py               # End-to-end automated test suite
+│   ├── test_system.py               # Core AI threat detection engines test suite
+│   └── test_api_endpoints.py        # REST API contracts & router integration suite
 ├── run_system.py                    # Root Unified Full-Stack Launcher
 └── start.bat                        # Windows One-Click Batch Launcher
 ```
@@ -173,7 +201,10 @@ Open **[http://localhost:5173](http://localhost:5173)**.
 
 ## 🧪 Running Automated Tests
 
-Run the test suite verifying all 5 AI/ML engines:
+CyberSentinel features a comprehensive test suite covering the core AI/ML engines as well as FastAPI REST router contracts.
+
+### 1. Test Core AI Engines
+Tests the 5 core detection and response engines (Network Anomaly, Phishing NLP, Malware Sandbox, AI Summarizer, Alert Engine):
 
 ```powershell
 .\venv\Scripts\python.exe tests\test_system.py
@@ -211,6 +242,22 @@ RUNNING CYBERSENTINEL AI TEST SUITE
 ============================================================
 ALL 5 CORE AI THREAT DETECTION ENGINES PASSED WITH ZERO ERRORS!
 ============================================================
+```
+
+### 2. Test REST API Contracts & Routers
+Validates all 9 FastAPI REST endpoints, middleware execution headers, error status codes, and Pydantic v2 schemas:
+
+```powershell
+.\venv\Scripts\python.exe tests\test_api_endpoints.py
+```
+
+Expected Output:
+```
+.........
+----------------------------------------------------------------------
+Ran 9 tests in 0.007s
+
+OK
 ```
 
 ---
