@@ -34,3 +34,7 @@ build/
 .DS_Store
 Thumbs.db
 *.log
+
+# Sub-projects
+devpulse/
+

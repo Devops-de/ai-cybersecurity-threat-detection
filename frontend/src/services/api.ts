@@ -1,34 +1,82 @@
-import { 
-  NetworkStats, 
-  NetworkFlow, 
-  PhishingAnalysisResult, 
-  MalwareClassificationResult, 
-  SecurityAlert, 
-  ThreatIntelligenceItem, 
-  IncidentSummary 
+import {
+  NetworkStats,
+  NetworkFlow,
+  PhishingAnalysisResult,
+  MalwareClassificationResult,
+  SecurityAlert,
+  ThreatIntelligenceItem,
+  IncidentSummary,
+  AttackSimulationResponse,
+  ContainmentResponse,
+  HealthStatus,
 } from '../types';
 
-const API_BASE = 'http://localhost:8000/api';
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public data?: unknown
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
+
+async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const url = `${API_BASE}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(options.headers || {}),
+  };
+
+  try {
+    const res = await fetch(url, { ...options, headers });
+    if (!res.ok) {
+      let errorDetail = `HTTP ${res.status}: ${res.statusText}`;
+      try {
+        const errorJson = await res.json();
+        if (errorJson.detail) {
+          errorDetail = errorJson.detail;
+        }
+      } catch {
+        // Fallback to generic message
+      }
+      throw new ApiError(errorDetail, res.status);
+    }
+    return (await res.json()) as T;
+  } catch (err) {
+    if (err instanceof ApiError) {
+      throw err;
+    }
+    throw new ApiError(
+      err instanceof Error ? err.message : 'Network communication error',
+      0
+    );
+  }
+}
 
 export const api = {
+  // System Health
+  async getHealth(): Promise<HealthStatus> {
+    return request<HealthStatus>('/health');
+  },
+
   // Network Traffic
   async getRecentTraffic(): Promise<{ flows: NetworkFlow[]; stats: NetworkStats }> {
-    const res = await fetch(`${API_BASE}/traffic/recent`);
-    return res.json();
+    return request<{ flows: NetworkFlow[]; stats: NetworkStats }>('/traffic/recent');
   },
 
   async getTrafficStats(): Promise<NetworkStats> {
-    const res = await fetch(`${API_BASE}/traffic/stats`);
-    return res.json();
+    return request<NetworkStats>('/traffic/stats');
   },
 
-  async simulateAttack(attackType: string | null): Promise<any> {
-    const res = await fetch(`${API_BASE}/traffic/simulate-attack`, {
+  async simulateAttack(attackType: string | null): Promise<AttackSimulationResponse> {
+    return request<AttackSimulationResponse>('/traffic/simulate-attack', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ attack_type: attackType })
+      body: JSON.stringify({ attack_type: attackType }),
     });
-    return res.json();
   },
 
   // Phishing Detection
@@ -38,12 +86,10 @@ export const api = {
     body: string;
     headers?: Record<string, string>;
   }): Promise<PhishingAnalysisResult> {
-    const res = await fetch(`${API_BASE}/phishing/analyze`, {
+    return request<PhishingAnalysisResult>('/phishing/analyze', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
-    return res.json();
   },
 
   // Malware Behavior
@@ -55,12 +101,10 @@ export const api = {
     reg_events: string[];
     net_events: string[];
   }): Promise<MalwareClassificationResult> {
-    const res = await fetch(`${API_BASE}/malware/classify`, {
+    return request<MalwareClassificationResult>('/malware/classify', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
-    return res.json();
   },
 
   // Incident Summaries & SOC Copilot
@@ -71,41 +115,37 @@ export const api = {
     source_ip: string;
     target_ip: string;
   }): Promise<IncidentSummary> {
-    const res = await fetch(`${API_BASE}/incidents/summary`, {
+    return request<IncidentSummary>('/incidents/summary', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
-    return res.json();
   },
 
   async sendCopilotMessage(message: string): Promise<{ reply: string }> {
-    const res = await fetch(`${API_BASE}/incidents/copilot`, {
+    return request<{ reply: string }>('/incidents/copilot', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message })
+      body: JSON.stringify({ message }),
     });
-    return res.json();
   },
 
   // Threat Intel
   async getThreatFeed(): Promise<{ global_threats: ThreatIntelligenceItem[]; active_indicators: number }> {
-    const res = await fetch(`${API_BASE}/threat-intel/feed`);
-    return res.json();
+    return request<{ global_threats: ThreatIntelligenceItem[]; active_indicators: number }>('/threat-intel/feed');
   },
 
-  // Alerts
+  async lookupIp(ip: string): Promise<ThreatIntelligenceItem> {
+    return request<ThreatIntelligenceItem>(`/threat-intel/lookup/${encodeURIComponent(ip)}`);
+  },
+
+  // Alerts & Containment
   async getAlerts(): Promise<{ alerts: SecurityAlert[]; total: number }> {
-    const res = await fetch(`${API_BASE}/alerts`);
-    return res.json();
+    return request<{ alerts: SecurityAlert[]; total: number }>('/alerts');
   },
 
-  async containAlert(alertId: string, actionType: string = 'ISOLATE_HOST'): Promise<any> {
-    const res = await fetch(`${API_BASE}/alerts/contain`, {
+  async containAlert(alertId: string, actionType: string = 'ISOLATE_HOST'): Promise<ContainmentResponse> {
+    return request<ContainmentResponse>('/alerts/contain', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ alert_id: alertId, action_type: actionType })
+      body: JSON.stringify({ alert_id: alertId, action_type: actionType }),
     });
-    return res.json();
-  }
+  },
 };

@@ -17,7 +17,7 @@ class NetworkAnomalyDetector:
             n_estimators=100,
             contamination=contamination,
             random_state=42,
-            n_jobs=-1
+            n_jobs=1
         )
         self.feature_names = [
             "flow_duration_ms",

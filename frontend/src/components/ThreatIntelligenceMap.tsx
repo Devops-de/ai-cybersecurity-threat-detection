@@ -6,22 +6,27 @@ import { ThreatIntelligenceItem } from '../types';
 export const ThreatIntelligenceMap: React.FC = () => {
   const [threats, setThreats] = useState<ThreatIntelligenceItem[]>([]);
   const [searchIp, setSearchIp] = useState('');
-  const [lookupResult, setLookupResult] = useState<any>(null);
+  const [lookupResult, setLookupResult] = useState<ThreatIntelligenceItem | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.getThreatFeed().then(res => setThreats(res.global_threats || []));
+    api.getThreatFeed()
+      .then(res => setThreats(res.global_threats || []))
+      .catch(err => console.error('Error fetching threat feed:', err));
   }, []);
 
   const handleLookup = async () => {
-    if (!searchIp.trim()) return;
+    const trimmed = searchIp.trim();
+    if (!trimmed) return;
     setIsLoading(true);
+    setLookupError(null);
     try {
-      const res = await fetch(`http://localhost:8000/api/threat-intel/lookup/${searchIp}`);
-      const data = await res.json();
+      const data = await api.lookupIp(trimmed);
       setLookupResult(data);
     } catch (e) {
-      console.error(e);
+      setLookupError(e instanceof Error ? e.message : 'Lookup failed');
+      setLookupResult(null);
     } finally {
       setIsLoading(false);
     }
@@ -63,6 +68,17 @@ export const ThreatIntelligenceMap: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Lookup Error Message */}
+      {lookupError && (
+        <div className="p-3 rounded-xl border border-red-500/40 bg-red-950/30 text-red-300 text-xs font-mono flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <AlertTriangle className="w-4 h-4 text-red-400" />
+            <span>{lookupError}</span>
+          </div>
+          <button onClick={() => setLookupError(null)} className="text-red-400 hover:text-white">✕</button>
+        </div>
+      )}
 
       {/* Lookup Result Modal/Card */}
       {lookupResult && (

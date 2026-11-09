@@ -104,3 +104,28 @@ export interface IncidentSummary {
     windows_powershell: string;
   };
 }
+
+export interface AttackSimulationResponse {
+  status: string;
+  current_simulation: string | null;
+  message: string;
+}
+
+export interface ContainmentResponse {
+  success: boolean;
+  alert?: SecurityAlert;
+  error?: string;
+}
+
+export interface HealthStatus {
+  status: string;
+  version: string;
+  models: Record<string, string>;
+}
+
+export interface WebSocketTelemetryPayload {
+  type: 'TRAFFIC_UPDATE';
+  flow?: NetworkFlow;
+  stats?: NetworkStats;
+  alert?: SecurityAlert | null;
+}

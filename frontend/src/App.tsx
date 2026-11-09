@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
 import { MetricsOverview } from './components/MetricsOverview';
@@ -8,8 +8,9 @@ import { MalwareBehaviorSandbox } from './components/MalwareBehaviorSandbox';
 import { AiSocAssistant } from './components/AiSocAssistant';
 import { ThreatIntelligenceMap } from './components/ThreatIntelligenceMap';
 import { AlertNotificationCenter } from './components/AlertNotificationCenter';
-import { NetworkFlow, NetworkStats, SecurityAlert } from './types';
+import { NetworkFlow, NetworkStats, SecurityAlert, WebSocketTelemetryPayload } from './types';
 import { api } from './services/api';
+import { useTelemetryWebSocket } from './hooks/useTelemetryWebSocket';
 
 export function App() {
   const [currentTab, setCurrentTab] = useState<string>('overview');
@@ -18,68 +19,39 @@ export function App() {
   const [alerts, setAlerts] = useState<SecurityAlert[]>([]);
   const [activeSimulation, setActiveSimulation] = useState<string | null>(null);
 
-  // Initial Fetch & WebSocket Connection
-  useEffect(() => {
-    // 1. Initial REST fetch for immediate render
-    api.getRecentTraffic().then(res => {
-      if (res.flows) setFlows(res.flows.reverse());
-      if (res.stats) setStats(res.stats);
-    }).catch(console.error);
-
-    api.getAlerts().then(res => {
-      if (res.alerts) setAlerts(res.alerts);
-    }).catch(console.error);
-
-    // 2. WebSocket Telemetry Stream
-    let socket: WebSocket | null = null;
-    let reconnectTimeout: any = null;
-
-    const connectWebSocket = () => {
-      try {
-        socket = new WebSocket('ws://localhost:8000/ws/telemetry');
-        socket.onopen = () => {
-          console.log('Connected to CyberSentinel Live Telemetry WebSocket');
-        };
-
-        socket.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            if (data.type === 'TRAFFIC_UPDATE') {
-              if (data.flow) {
-                setFlows(prev => [data.flow, ...prev.slice(0, 75)]);
-              }
-              if (data.stats) {
-                setStats(data.stats);
-                setActiveSimulation(data.stats.active_simulation);
-              }
-              if (data.alert) {
-                setAlerts(prev => [data.alert, ...prev]);
-              }
-            }
-          } catch (err) {
-            console.error('Error parsing WS message:', err);
-          }
-        };
-
-        socket.onclose = () => {
-          console.log('Telemetry WebSocket closed. Reconnecting in 3s...');
-          reconnectTimeout = setTimeout(connectWebSocket, 3000);
-        };
-
-        socket.onerror = (err) => {
-          console.warn('WebSocket connection error, falling back to polling if necessary.');
-        };
-      } catch (err) {
-        console.error('WS init error:', err);
+  // WebSocket message handler
+  const handleWsMessage = useCallback((data: WebSocketTelemetryPayload) => {
+    if (data.type === 'TRAFFIC_UPDATE') {
+      if (data.flow) {
+        setFlows(prev => [data.flow!, ...prev.slice(0, 75)]);
       }
-    };
+      if (data.stats) {
+        setStats(data.stats);
+        setActiveSimulation(data.stats.active_simulation);
+      }
+      if (data.alert) {
+        setAlerts(prev => [data.alert!, ...prev]);
+      }
+    }
+  }, []);
 
-    connectWebSocket();
+  // Connect telemetry WebSocket with resilient reconnection
+  useTelemetryWebSocket({ onMessage: handleWsMessage });
 
-    return () => {
-      if (socket) socket.close();
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
-    };
+  // Initial Data Fetch
+  useEffect(() => {
+    api.getRecentTraffic()
+      .then(res => {
+        if (res.flows) setFlows(res.flows.slice().reverse());
+        if (res.stats) setStats(res.stats);
+      })
+      .catch(err => console.error('Error fetching initial traffic:', err));
+
+    api.getAlerts()
+      .then(res => {
+        if (res.alerts) setAlerts(res.alerts);
+      })
+      .catch(err => console.error('Error fetching initial alerts:', err));
   }, []);
 
   const handleSimulateAttack = async (type: string | null) => {
@@ -87,14 +59,16 @@ export function App() {
     try {
       await api.simulateAttack(type);
     } catch (e) {
-      console.error(e);
+      console.error('Failed to trigger attack simulation:', e);
     }
   };
 
   const handleRefreshAlerts = () => {
-    api.getAlerts().then(res => {
-      if (res.alerts) setAlerts(res.alerts);
-    }).catch(console.error);
+    api.getAlerts()
+      .then(res => {
+        if (res.alerts) setAlerts(res.alerts);
+      })
+      .catch(err => console.error('Error refreshing alerts:', err));
   };
 
   return (
@@ -116,7 +90,7 @@ export function App() {
           {currentTab === 'overview' && (
             <div className="space-y-6">
               <MetricsOverview stats={stats} totalAlerts={alerts.length} />
-              
+
               <div className="grid grid-cols-1 gap-6">
                 <LiveTrafficMonitor
                   flows={flows}
